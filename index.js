@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
@@ -33,6 +33,20 @@ async function run() {
 
     const foodPostCollection = client.db("sharebite").collection("foodPost")
 
+    app.get('/allfoodpost' , async ( req , res)=>{
+        const query = {status: 'available'}
+        const result = await foodPostCollection.find(query).sort({expiredDate: 1 }).toArray()
+        res.send(result)
+    })
+
+
+    app.get('/fooddetails/:id' , async(req , res)=>{
+      const id = req.params;
+      const filter = {_id : new ObjectId(id)}
+      const result = await foodPostCollection.findOne(filter)
+      res.send(result)
+      
+    })
 
     app.post('/addfood' , async ( req , res) =>{
         const newpost = req.body
@@ -40,12 +54,8 @@ async function run() {
         res.send(result)
     })
 
+    
 
-    app.get('/allfoodpost' , async ( req , res)=>{
-        const query = {status: 'available'}
-        const result = await foodPostCollection.find(query).toArray()
-        res.send(result)
-    })
 
 
 
