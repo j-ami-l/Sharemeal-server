@@ -5,14 +5,14 @@ require('dotenv').config()
 const app = express()
 app.use(express.json())
 app.use(cors({
-    origin : "http://localhost:5173",
-    credentials : true
+  origin: "http://localhost:5173",
+  credentials: true
 }))
-
+const admin = require("firebase-admin");
 const port = process.env.PORT || 5000
 
-app.get("/" , (req , res)=>{
-    res.send("sharemeal server is running")
+app.get("/", (req, res) => {
+  res.send("sharemeal server is running")
 })
 
 
@@ -28,48 +28,78 @@ const client = new MongoClient(uri, {
   }
 });
 
+const decoded = Buffer.from(process.env.FB_SERVICES_KEY, 'base64').toString('utf8')
+const serviceAccount = JSON.parse(decoded)
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+
+const verifyToken = async (req, res, next) => {
+  const accessToken = req.headers?.authorization
+  if (!accessToken || !accessToken.startsWith("Bearer ")) return res.status(401).send({ message: "unauthorized access" })
+  const token = accessToken.split(" ")[1]
+  try {
+    const decoded = await admin.auth().verifyIdToken(token)
+    console.log(decoded);
+    req.decoded = decoded
+    next();
+  }
+  catch (error) {
+    return res.status(401).send({ message: "unauthorized access" })
+  }
+}
+
 async function run() {
   try {
 
     const foodPostCollection = client.db("sharebite").collection("foodPost")
     const requestsCollection = client.db("sharebite").collection("requests")
 
-    app.get('/allfoodpost' , async ( req , res)=>{
-        const query = {status: 'available'}
-        const result = await foodPostCollection.find(query).sort({expiredDate: 1 }).toArray()
-        res.send(result)
+    app.get('/allfoodpost', async (req, res) => {
+      const query = { status: 'available' }
+      const result = await foodPostCollection.find(query).sort({ expiredDate: 1 }).toArray()
+      res.send(result)
     })
 
 
-    app.get('/fooddetails/:id' , async(req , res)=>{
+    app.get('/fooddetails/:id', async (req, res) => {
       const id = req.params;
-      const filter = {_id : new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) }
       const result = await foodPostCollection.findOne(filter)
       res.send(result)
-      
+
     })
 
-    app.post('/addfood' , async ( req , res) =>{
-        const newpost = req.body
-        const result = await foodPostCollection.insertOne(newpost);
-        res.send(result)
+    app.get('/myfoods', verifyToken, async (req, res) => {
+      const email = req.query.email
+      const filter = { "donor.email": email };
+      const result = await foodPostCollection.find(filter).toArray()
+      res.send(result)
     })
+
+    app.post('/addfood', async (req, res) => {
+      const newpost = req.body
+      const result = await foodPostCollection.insertOne(newpost);
+      res.send(result)
+    })
+
 
 
     //food reqeust added to the server
-    app.post('/addrequest' , async( req , res)=>{
+    app.post('/addrequest', async (req, res) => {
       const newReq = req.body;
       console.log(newReq);
       const id = req.body.FoodId;
-      const filter = {_id : new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) }
       const update = {
-        $set:{status: 'requested'}
+        $set: { status: 'requested' }
       }
       const options = { upsert: true };
       const result1 = await foodPostCollection.updateOne(filter, update, options);
       const result = await requestsCollection.insertOne(newReq)
       res.send(result)
-      
+
     })
 
 
@@ -84,7 +114,7 @@ run().catch(console.dir);
 
 
 
-app.listen(port , ()=>{
-    console.log("server is running");
-    
+app.listen(port, () => {
+  console.log("server is running");
+
 })
