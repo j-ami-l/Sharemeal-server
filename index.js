@@ -48,9 +48,13 @@ const verifyToken = async (req, res, next) => {
     return res.status(401).send({ message: "unauthorized access" })
   }
 }
-const verfiyEmail = (req ,res , next) =>{
-  if(req.decoded.email === req.query.email) next()
-  else  return res.status(401).send({ message: "unauthorized access" })
+const verfiyEmail = (req, res, next) => {
+  if (req.decoded.email === req.query.email) next()
+  else return res.status(401).send({ message: "unauthorized access" })
+}
+const verifyDonerEmail = (req, res, next) => {
+  if (req.decoded.email == req.body.donor.email) next()
+  else return res.status(401).send({ message: "unauthorized access" })
 }
 
 async function run() {
@@ -58,6 +62,14 @@ async function run() {
 
     const foodPostCollection = client.db("sharebite").collection("foodPost")
     const requestsCollection = client.db("sharebite").collection("requests")
+
+    const verfiyDltAuth = async (req, res, next) => {
+      const id = req.params;
+      const query = { _id: new ObjectId(id) }
+      const result = await foodPostCollection.findOne(query)
+      if (result.donor.email === req.decoded.email) next()
+      else return res.status(401).send({ message: "unauthorized access" })
+    }
 
     app.get('/allfoodpost', async (req, res) => {
       const query = { status: 'available' }
@@ -74,11 +86,19 @@ async function run() {
 
     })
 
-    app.get('/myfoods', verifyToken, verfiyEmail , async (req, res) => {
+    app.get('/myfoods', verifyToken, verfiyEmail, async (req, res) => {
       const email = req.query.email
       const filter = { "donor.email": email };
       const result = await foodPostCollection.find(filter).toArray()
       res.send(result)
+    })
+
+    app.get('/myrequests', async (req, res) => {
+      const email = req.query.email;
+      const filter = {userEmail : email}
+      const result = await requestsCollection.find(filter).toArray()
+      res.send(result)
+
     })
 
     app.post('/addfood', async (req, res) => {
@@ -104,18 +124,23 @@ async function run() {
 
     })
 
-    app.put('/myfood/update/:id' , async(req , res)=>{
-      console.log(req.params);
+    app.put('/myfood/update/:id', verifyToken, verifyDonerEmail, async (req, res) => {
       const id = req.params
-      const query = {_id : new ObjectId(id)}
+      const query = { _id: new ObjectId(id) }
       const update = {
-        $set : req.body
+        $set: req.body
       }
       const options = { upsert: true };
       const result = await foodPostCollection.updateOne(query, update, options);
       res.send(result)
     })
 
+    app.delete('/fooddlt/:id', verifyToken, verfiyDltAuth, async (req, res) => {
+      const id = req.params;
+      const query = { _id: new ObjectId(id) }
+      const result = await foodPostCollection.deleteOne(query)
+      res.send(result)
+    })
 
     await client.db("admin").command({ ping: 1 });
     //("Pinged your deployment. You successfully connected to MongoDB!");
