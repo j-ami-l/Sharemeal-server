@@ -32,6 +32,7 @@ async function run() {
   try {
 
     const foodPostCollection = client.db("sharebite").collection("foodPost")
+    const requestsCollection = client.db("sharebite").collection("requests")
 
     app.get('/allfoodpost' , async ( req , res)=>{
         const query = {status: 'available'}
@@ -54,7 +55,22 @@ async function run() {
         res.send(result)
     })
 
-    
+
+    //food reqeust added to the server
+    app.post('/addrequest' , async( req , res)=>{
+      const newReq = req.body;
+      console.log(newReq);
+      const id = req.body.FoodId;
+      const filter = {_id : new ObjectId(id)}
+      const update = {
+        $set:{status: 'requested'}
+      }
+      const options = { upsert: true };
+      const result1 = await foodPostCollection.updateOne(filter, update, options);
+      const result = await requestsCollection.insertOne(newReq)
+      res.send(result)
+      
+    })
 
 
 
