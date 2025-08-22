@@ -41,13 +41,16 @@ const verifyToken = async (req, res, next) => {
   const token = accessToken.split(" ")[1]
   try {
     const decoded = await admin.auth().verifyIdToken(token)
-    console.log(decoded);
     req.decoded = decoded
     next();
   }
   catch (error) {
     return res.status(401).send({ message: "unauthorized access" })
   }
+}
+const verfiyEmail = (req ,res , next) =>{
+  if(req.decoded.email === req.query.email) next()
+  else  return res.status(401).send({ message: "unauthorized access" })
 }
 
 async function run() {
@@ -71,7 +74,7 @@ async function run() {
 
     })
 
-    app.get('/myfoods', verifyToken, async (req, res) => {
+    app.get('/myfoods', verifyToken, verfiyEmail , async (req, res) => {
       const email = req.query.email
       const filter = { "donor.email": email };
       const result = await foodPostCollection.find(filter).toArray()
@@ -89,7 +92,6 @@ async function run() {
     //food reqeust added to the server
     app.post('/addrequest', async (req, res) => {
       const newReq = req.body;
-      console.log(newReq);
       const id = req.body.FoodId;
       const filter = { _id: new ObjectId(id) }
       const update = {
@@ -102,11 +104,21 @@ async function run() {
 
     })
 
-
+    app.put('/myfood/update/:id' , async(req , res)=>{
+      console.log(req.params);
+      const id = req.params
+      const query = {_id : new ObjectId(id)}
+      const update = {
+        $set : req.body
+      }
+      const options = { upsert: true };
+      const result = await foodPostCollection.updateOne(query, update, options);
+      res.send(result)
+    })
 
 
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    //("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
   }
 }
