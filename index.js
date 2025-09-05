@@ -5,7 +5,12 @@ require('dotenv').config()
 const app = express()
 app.use(express.json())
 app.use(cors({
-  origin: "http://localhost:5173",
+  //origin: "https://sharebite-101.web.app",
+  origin: [
+    "https://sharemeal.vercel.app",
+    "http://localhost:5173"
+
+  ],
   credentials: true
 }))
 const admin = require("firebase-admin");
@@ -14,6 +19,10 @@ const port = process.env.PORT || 5000
 app.get("/", (req, res) => {
   res.send("sharemeal server is running")
 })
+
+
+
+
 
 
 
@@ -72,8 +81,24 @@ async function run() {
     }
 
     app.get('/allfoodpost', async (req, res) => {
+      const search = req.query.search;
       const query = { status: 'available' }
+      if (search) {
+        const result = await foodPostCollection.find(
+          {
+            status: 'available',
+            foodName: { $regex: search, $options: "i" }
+          }
+        ).sort({ expiredDate: 1 }).toArray()
+        res.send(result)
+        return
+      }
       const result = await foodPostCollection.find(query).sort({ expiredDate: 1 }).toArray()
+      res.send(result)
+    })
+
+    app.get("/featuredfoods" , async(req, res)=>{
+      const result = await foodPostCollection.find().limit(6).toArray()
       res.send(result)
     })
 
@@ -93,9 +118,9 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/myrequests', async (req, res) => {
+    app.get('/myrequests', verifyToken, verfiyEmail, async (req, res) => {
       const email = req.query.email;
-      const filter = {userEmail : email}
+      const filter = { userEmail: email }
       const result = await requestsCollection.find(filter).toArray()
       res.send(result)
 
