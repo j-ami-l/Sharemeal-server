@@ -21,11 +21,6 @@ app.get("/", (req, res) => {
 })
 
 
-
-
-
-
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_SECRET_KEY}@cluster0.blokvlz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 
@@ -97,17 +92,24 @@ async function run() {
       res.send(result)
     })
 
-    app.get("/featuredfoods" , async(req, res)=>{
+    app.get("/featuredfoods", async (req, res) => {
       const result = await foodPostCollection.find().limit(6).toArray()
       res.send(result)
     })
 
 
     app.get('/fooddetails/:id', async (req, res) => {
-      const id = req.params;
+      const { id } = req.params;
+      if (id.length !== 24) {
+        return res.status(400).send({ error: 'Invalid ID format' });
+      }
       const filter = { _id: new ObjectId(id) }
       const result = await foodPostCollection.findOne(filter)
-      res.send(result)
+      if (!result) {
+        return res.status(404).send({ error: 'Food item not found' });
+      }
+      else
+        res.status(201).send(result)
 
     })
 
